@@ -1,0 +1,5 @@
+# Let the logged-in user configure the CHERRY MX 8.2 TKL Wireless through its
+# 2.4 GHz dongle. Install on the host (not inside a container):
+#   sudo cp 70-cherry-util.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload && sudo udevadm trigger
+KERNEL=="hidraw*", ATTRS{idVendor}=="046a", ATTRS{idProduct}=="01c3", TAG+="uaccess"
