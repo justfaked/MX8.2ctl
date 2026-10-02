@@ -4,6 +4,7 @@ import argparse
 import dataclasses
 import sys
 
+from . import __version__
 from .device import DeviceError, open_device
 from .keyboard import Keyboard
 from .layout import load_layout
@@ -260,7 +261,10 @@ def cmd_setup_desktop(_keyboard: None, _args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="cherry-util")
+    parser = argparse.ArgumentParser(
+        prog="cherry-util", description="Configure the CHERRY MX 8.2 TKL Wireless keyboard."
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("info", help="find the keyboard and check access").set_defaults(func=cmd_info)
