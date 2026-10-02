@@ -7,6 +7,7 @@ It talks to the keyboard through its 2.4 GHz dongle and can:
 - show the battery level
 - change the sleep and hibernate timers
 - change the lighting: effect, color, brightness, speed, direction, on/off
+- give every key its own color (German ISO layout)
 - save and switch between named presets
 - do all of that from a settings window, with a tray icon showing the battery level
 
@@ -59,27 +60,29 @@ cherry-util <command>
 | `lighting` | Show the current lighting |
 | `lighting --effect breathing --color blue` | Change the lighting (options below) |
 | `lighting --off` / `--on` | Turn the lights off or on. Other settings are kept |
-| `save <name>` | Save the current lighting and sleep settings as a preset |
+| `keys` | Show the per-key colors last set |
+| `keys --all white --set w,a,s,d=red` | Set per-key colors and switch to the `custom` effect. Key names are the German labels (`z`, `ö`, `ß`, `<`, `#`) or `esc`, `enter`, `space`, `f1`, …; `--clear` starts from all keys dark |
+| `save <name>` | Save the current lighting, sleep settings and per-key colors as a preset |
 | `use <name>` | Apply a preset |
 | `presets` | List presets |
 | `delete <name>` | Delete a preset |
 
 Lighting options can be combined:
 
-- `--effect`: wave, spectrum, breathing, static, radar, vortex, fire, stars, sine-wave, rolling, rain, curve, red-hot-metal, wave-mid, scan, radiation, ripples, single-key, xaga
+- `--effect`: wave, spectrum, breathing, static, radar, vortex, fire, stars, custom (per-key colors), sine-wave, rolling, rain, curve, red-hot-metal, wave-mid, scan, radiation, ripples, single-key, xaga
 - `--color`: red, orange, yellow, green, cyan, blue, purple, pink, white, or a hex code like `ff8800`
 - `--rainbow`: cycle through all colors instead of using one
 - `--brightness`: 0 (dimmest) to 4 (brightest)
 - `--speed`: 1 (slowest) to 5 (fastest)
 - `--direction`: left or right (wave effect)
 
-Presets are stored in `~/.config/cherry-util/presets.json`.
+Presets are stored in `~/.config/cherry-util/presets.json`. The keyboard can't report its per-key colors, so the ones last sent are kept in `~/.config/cherry-util/key_colors.json`.
 
 ## Settings window and tray icon
 
 | Command | What it does |
 |---|---|
-| `gui` | Open the settings window: lighting, sleep timers, presets and battery level |
+| `gui` | Open the settings window: lighting, per-key colors (click keys on a picture of the keyboard), sleep timers, presets and battery level |
 | `tray` | Run only the tray icon |
 | `setup-desktop` | Add "Cherry Keyboard Utility" to the app menu and start the tray icon at login |
 
@@ -96,7 +99,7 @@ The protocol knowledge comes from:
 - [cherryrgb-rs](https://github.com/skraus-dev/cherryrgb-rs): lighting packets and effect IDs
 - [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB): EVision protocol and the MX 8.2 USB captures in issue #3942
 - [cherry-battery-state](https://github.com/zcmk123/cherry-battery-state) and [BatteryTool](https://github.com/1gcat/BatteryTool): battery query
-- Static analysis of the official CHERRY Utility 3.12: sleep timers, the lights on/off flag and this keyboard's effect list
+- Static analysis of the official CHERRY Utility 3.12: sleep timers, the lights on/off flag, this keyboard's effect list, and the key layout and LED order in `cherry_util/layouts/`
 
 Not affiliated with CHERRY.
 

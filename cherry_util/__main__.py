@@ -6,7 +6,8 @@ import sys
 
 from .device import DeviceError, open_device
 from .keyboard import Keyboard
-from .presets import PresetError, PresetStore, apply_preset, current_preset
+from .layout import load_layout
+from .presets import PresetError, PresetStore, apply_preset, current_preset, load_key_colors, set_key_colors
 from .protocol import (
     BRIGHTNESS_RANGE,
     DIRECTION_NAMES,
@@ -143,6 +144,53 @@ def cmd_lighting(keyboard: Keyboard, args: argparse.Namespace) -> None:
     print(describe_lighting(settings))
 
 
+# --- keys ------------------------------------------------------------------
+
+
+def parse_key_assignment(value: str) -> tuple[list[str], tuple[int, int, int]]:
+    """'w,a,s,d=red' -> (['w', 'a', 's', 'd'], (255, 0, 0))"""
+    keys, sep, color = value.rpartition("=")
+    if not sep or not keys:
+        raise argparse.ArgumentTypeError("use KEYS=COLOR, e.g. w,a,s,d=red")
+    return [k for k in keys.split(",") if k.strip()], parse_color(color)
+
+
+def describe_key_colors(colors: dict[int, tuple[int, int, int]]) -> str:
+    if not colors:
+        return "No per-key colors set yet."
+    layout = load_layout()
+    by_color: dict[tuple[int, int, int], list[str]] = {}
+    for key in sorted(layout.keys, key=lambda k: (round(k.y, 2), k.x)):
+        if key.index in colors:
+            by_color.setdefault(colors[key.index], []).append(key.label)
+    lines = ["#{:02x}{:02x}{:02x}: ".format(*color) + " ".join(labels) for color, labels in by_color.items()]
+    unset = len(layout.keys) - sum(1 for k in layout.keys if k.index in colors)
+    if unset:
+        lines.append(f"(dark: {unset} keys)")
+    return "\n".join(lines)
+
+
+def cmd_keys(keyboard: Keyboard, args: argparse.Namespace) -> None:
+    if args.all is None and not args.set and not args.clear:
+        print(describe_key_colors(load_key_colors()))
+        return
+    layout = load_layout()
+    colors = {} if args.clear else load_key_colors()
+    if args.all is not None:
+        colors = {key.index: args.all for key in layout.keys}
+    for names, color in args.set:
+        for name in names:
+            key = layout.find(name)
+            if key is None:
+                raise DeviceError(f"Unknown key '{name}'.")
+            colors[key.index] = color
+    set_key_colors(keyboard, colors)
+    lighting = keyboard.lighting()
+    if not lighting.enabled or lighting.effect != EFFECTS["custom"]:
+        keyboard.set_lighting(dataclasses.replace(lighting, enabled=True, effect=EFFECTS["custom"]))
+    print(describe_key_colors(colors))
+
+
 # --- presets ---------------------------------------------------------------
 
 
@@ -247,6 +295,19 @@ def build_parser() -> argparse.ArgumentParser:
     lighting.add_argument("--speed", type=parse_speed, metavar="1-5", help="1 = slowest, 5 = fastest")
     lighting.add_argument("--direction", choices=DIRECTIONS, help="direction of the wave effect")
     lighting.set_defaults(func=cmd_lighting)
+
+    keys = commands.add_parser(
+        "keys",
+        help="show or set per-key colors (switches the effect to 'custom')",
+        description="Key names are the German labels (z, ö, ß, <, #, ...) or esc, enter, space, f1, ...",
+    )
+    keys.add_argument("--all", type=parse_color, metavar="COLOR", help="give every key this color first")
+    keys.add_argument(
+        "--set", type=parse_key_assignment, action="append", default=[], metavar="KEYS=COLOR",
+        help="color some keys, e.g. w,a,s,d=red (repeatable)",
+    )
+    keys.add_argument("--clear", action="store_true", help="start from all keys dark instead of the current colors")
+    keys.set_defaults(func=cmd_keys)
 
     save = commands.add_parser("save", help="save the keyboard's current lighting and sleep settings as a preset")
     save.add_argument("name", type=preset_name)

@@ -7,38 +7,83 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .keyboard import Keyboard
-from .protocol import LightingSettings, SleepSettings
+from .protocol import LightingSettings, SleepSettings, custom_colors_bytes
+
+Color = tuple[int, int, int]
+KeyColors = dict[int, Color]  # key index -> color
 
 
 class PresetError(Exception):
     pass
 
 
+def config_dir() -> Path:
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "cherry-util"
+
+
 def presets_file() -> Path:
-    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    return config_home / "cherry-util" / "presets.json"
+    return config_dir() / "presets.json"
+
+
+def key_colors_file() -> Path:
+    return config_dir() / "key_colors.json"
+
+
+def _colors_to_json(colors: KeyColors) -> dict:
+    return {str(index): "#{:02x}{:02x}{:02x}".format(*color) for index, color in sorted(colors.items())}
+
+
+def _colors_from_json(data: dict) -> KeyColors:
+    return {int(index): tuple(bytes.fromhex(value.removeprefix("#"))) for index, value in data.items()}
+
+
+def load_key_colors() -> KeyColors:
+    """The per-key colors last sent to the keyboard (it can't report them back)."""
+    path = key_colors_file()
+    if not path.exists():
+        return {}
+    try:
+        return _colors_from_json(json.loads(path.read_text()))
+    except (ValueError, AttributeError) as error:
+        raise PresetError(f"Can't read {path}: {error}") from None
+
+
+def set_key_colors(keyboard: Keyboard, colors: KeyColors) -> None:
+    """Send per-key colors to the keyboard and remember them."""
+    keyboard.write_custom_colors(custom_colors_bytes(colors))
+    path = key_colors_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_colors_to_json(colors), indent=2) + "\n")
 
 
 @dataclass
 class Preset:
     lighting: LightingSettings
     sleep: SleepSettings
+    key_colors: KeyColors = dataclasses.field(default_factory=dict)
 
     def to_json(self) -> dict:
-        return {"lighting": dataclasses.asdict(self.lighting), "sleep": dataclasses.asdict(self.sleep)}
+        data = {"lighting": dataclasses.asdict(self.lighting), "sleep": dataclasses.asdict(self.sleep)}
+        if self.key_colors:
+            data["key_colors"] = _colors_to_json(self.key_colors)
+        return data
 
     @classmethod
     def from_json(cls, data: dict) -> "Preset":
         lighting = dict(data["lighting"])
         lighting["color"] = tuple(lighting["color"])
-        return cls(LightingSettings(**lighting), SleepSettings(**data["sleep"]))
+        key_colors = _colors_from_json(data.get("key_colors", {}))
+        return cls(LightingSettings(**lighting), SleepSettings(**data["sleep"]), key_colors)
 
 
 def current_preset(keyboard: Keyboard) -> Preset:
-    return Preset(lighting=keyboard.lighting(), sleep=keyboard.sleep_settings())
+    return Preset(lighting=keyboard.lighting(), sleep=keyboard.sleep_settings(), key_colors=load_key_colors())
 
 
 def apply_preset(keyboard: Keyboard, preset: Preset) -> None:
+    # Colors first, so switching to the custom effect shows the right ones.
+    if preset.key_colors:
+        set_key_colors(keyboard, preset.key_colors)
     keyboard.set_lighting(preset.lighting)
     keyboard.set_sleep_settings(preset.sleep)
 

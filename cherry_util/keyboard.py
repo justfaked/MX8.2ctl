@@ -5,10 +5,13 @@ from .protocol import (
     BATTERY_QUERY,
     BEGIN_CONFIGURE,
     CMD_BEGIN_CONFIGURE,
+    CMD_DONGLE_ACK,
     CMD_END_CONFIGURE,
     CMD_READ_BATTERY,
     CMD_READ_CONFIG,
     CMD_WRITE_CONFIG,
+    CMD_WRITE_CUSTOM_COLORS,
+    MAX_DATA,
     END_CONFIGURE,
     LIGHTING_SIZE,
     OFFSET_LIGHTING,
@@ -22,7 +25,7 @@ from .protocol import (
     parse_battery,
     read_config_packet,
     reply_data,
-    write_config_packet,
+    write_packet,
 )
 
 ASLEEP_HINT = "The keyboard didn't answer. It may be asleep: press a key and try again."
@@ -44,13 +47,25 @@ class Keyboard:
         return data
 
     def write_config(self, *writes: tuple[int, bytes]) -> None:
-        """Write (offset, data) pairs to the config table in one begin/end session,
-        like the Cherry Utility does."""
+        """Write (offset, data) pairs to the config table in one begin/end session."""
+        self._write_session([(CMD_WRITE_CONFIG, offset, data) for offset, data in writes])
+
+    def write_custom_colors(self, table: bytes) -> None:
+        """Write the whole per-key color table in 56-byte chunks, in one session."""
+        chunks = [
+            (CMD_WRITE_CUSTOM_COLORS, offset, table[offset : offset + MAX_DATA])
+            for offset in range(0, len(table), MAX_DATA)
+        ]
+        self._write_session(chunks)
+
+    def _write_session(self, writes: list[tuple[int, int, bytes]]) -> None:
+        """Send (command, offset, data) writes wrapped in begin/end, like the Cherry Utility does."""
         if self.device.request(BEGIN_CONFIGURE, CMD_BEGIN_CONFIGURE) is None:
             raise DeviceError(ASLEEP_HINT)
         try:
-            for offset, data in writes:
-                reply = self.device.request(write_config_packet(offset, data), CMD_WRITE_CONFIG, offset)
+            for command, offset, data in writes:
+                expected = (command, CMD_DONGLE_ACK) if command == CMD_WRITE_CUSTOM_COLORS else command
+                reply = self.device.request(write_packet(command, offset, data), expected, offset)
                 if reply is None or reply[7] not in (0, WRITE_MARKER):
                     raise DeviceError("The keyboard didn't accept the new setting.")
         finally:

@@ -22,7 +22,7 @@ Command-line tool to configure the CHERRY MX 8.2 TKL Wireless on Bazzite, run fr
 ## Later
 
 - [ ] Low-battery desktop notification
-- [ ] Per-key colors
+- [x] Per-key colors (`cherry-util keys`, editor in the app; German layout)
 - [ ] Support the USB cable connection
 - [ ] Maybe publish on GitHub for other MX 8.2 owners
 
