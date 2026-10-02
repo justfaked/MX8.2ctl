@@ -15,7 +15,7 @@ Command-line tool to configure the CHERRY MX 8.2 TKL Wireless on Bazzite, run fr
 - [x] Remember the last-used preset
 - [x] ~~Re-apply the last-used preset automatically on login/reconnect~~ (not needed: the keyboard remembers its settings)
 - [ ] Export `cherry-util` from distrobox so it runs in a normal Bazzite terminal
-- [ ] Short usage notes (README)
+- [x] Short usage notes (README)
 - [ ] Graphical app: lighting, sleep settings, battery level and presets in a window, launchable from the app menu
 
 ## Later
