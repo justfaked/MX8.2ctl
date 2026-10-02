@@ -1,0 +1,8 @@
+[project]
+name = "cherry-util"
+version = "0.1.0"
+description = "Configure the CHERRY MX 8.2 TKL Wireless on Linux"
+requires-python = ">=3.11"
+
+[project.scripts]
+cherry-util = "cherry_util.__main__:main"

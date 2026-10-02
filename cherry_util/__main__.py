@@ -1,0 +1,277 @@
+"""Command-line entry point: `cherry-util <command>`."""
+
+import argparse
+import dataclasses
+import sys
+
+from .device import DeviceError, open_device
+from .keyboard import Keyboard
+from .presets import Preset, PresetError, PresetStore
+from .protocol import (
+    BRIGHTNESS_RANGE,
+    DIRECTION_NAMES,
+    DIRECTIONS,
+    EFFECT_NAMES,
+    EFFECTS,
+    HIBERNATE_OFF,
+    HIBERNATE_RANGE,
+    SLEEP_OFF,
+    SLEEP_RANGE,
+    SPEED_RANGE,
+    LightingSettings,
+    SleepSettings,
+)
+
+COLORS = {
+    "red": (255, 0, 0),
+    "orange": (255, 96, 0),
+    "yellow": (255, 200, 0),
+    "green": (0, 255, 0),
+    "cyan": (0, 255, 255),
+    "blue": (0, 0, 255),
+    "purple": (128, 0, 255),
+    "pink": (255, 0, 128),
+    "white": (255, 255, 255),
+}
+
+# The keyboard stores speed as 0 (fastest) to 4 (slowest); users get 1 (slowest) to 5 (fastest).
+MAX_SPEED = SPEED_RANGE.stop
+
+
+def cmd_info(keyboard: Keyboard, _args: argparse.Namespace) -> None:
+    info = keyboard.device.info
+    print(f"Found:   {info.name} (046a:{info.product_id:04x})")
+    print(f"Device:  {info.path}")
+    print("Connection opened successfully.")
+
+
+def cmd_battery(keyboard: Keyboard, _args: argparse.Namespace) -> None:
+    status = keyboard.battery()
+    print(f"Battery: {status.percent}%" + (" (charging)" if status.charging else ""))
+
+
+# --- sleep -----------------------------------------------------------------
+
+
+def describe_sleep(settings: SleepSettings) -> str:
+    sleep = "off" if settings.sleep_seconds == SLEEP_OFF else f"after {settings.sleep_seconds} seconds"
+    hibernate = "off" if settings.hibernate_minutes == HIBERNATE_OFF else f"after {settings.hibernate_minutes} minutes"
+    return f"Sleep:     {sleep}\nHibernate: {hibernate}"
+
+
+def parse_timer(value: str, allowed: range, off: int, unit: str) -> int:
+    if value == "off":
+        return off
+    if value.isdigit() and int(value) in allowed:
+        return int(value)
+    raise argparse.ArgumentTypeError(f"must be 'off' or {allowed.start}-{allowed.stop - 1} {unit}")
+
+
+def cmd_sleep(keyboard: Keyboard, args: argparse.Namespace) -> None:
+    settings = keyboard.sleep_settings()
+    changes = {
+        name: value
+        for name, value in (("sleep_seconds", args.sleep), ("hibernate_minutes", args.hibernate))
+        if value is not None
+    }
+    if changes:
+        settings = keyboard.set_sleep_settings(dataclasses.replace(settings, **changes))
+    print(describe_sleep(settings))
+
+
+# --- lighting --------------------------------------------------------------
+
+
+def describe_lighting(settings: LightingSettings) -> str:
+    effect = EFFECT_NAMES.get(settings.effect, f"unknown ({settings.effect:#04x})")
+    color = "rainbow" if settings.rainbow else "#{:02x}{:02x}{:02x}".format(*settings.color)
+    direction = DIRECTION_NAMES.get(settings.direction, f"unknown ({settings.direction:#04x})")
+    return (
+        f"Lights:     {'on' if settings.enabled else 'off'}\n"
+        f"Effect:     {effect}\n"
+        f"Color:      {color}\n"
+        f"Brightness: {settings.brightness} of {BRIGHTNESS_RANGE.stop - 1}\n"
+        f"Speed:      {MAX_SPEED - settings.speed} of {MAX_SPEED}\n"
+        f"Direction:  {direction}"
+    )
+
+
+def parse_color(value: str) -> tuple[int, int, int]:
+    if value in COLORS:
+        return COLORS[value]
+    hex_value = value.removeprefix("#")
+    if len(hex_value) == 6:
+        try:
+            return tuple(bytes.fromhex(hex_value))
+        except ValueError:
+            pass
+    raise argparse.ArgumentTypeError(f"use a name ({', '.join(COLORS)}) or a hex code like ff8800")
+
+
+def parse_number(value: str, allowed: range) -> int:
+    if value.isdigit() and int(value) in allowed:
+        return int(value)
+    raise argparse.ArgumentTypeError(f"must be {allowed.start}-{allowed.stop - 1}")
+
+
+def parse_speed(value: str) -> int:
+    return MAX_SPEED - parse_number(value, range(1, MAX_SPEED + 1))
+
+
+def cmd_lighting(keyboard: Keyboard, args: argparse.Namespace) -> None:
+    settings = keyboard.lighting()
+    changes = {}
+    if args.effect is not None:
+        changes["effect"] = EFFECTS[args.effect]
+    if args.color is not None:
+        changes["color"] = args.color
+        changes["rainbow"] = False
+    if args.rainbow:
+        changes["rainbow"] = True
+    if args.brightness is not None:
+        changes["brightness"] = args.brightness
+    if args.speed is not None:
+        changes["speed"] = args.speed
+    if args.direction is not None:
+        changes["direction"] = DIRECTIONS[args.direction]
+    if args.off:
+        changes["enabled"] = False
+    elif changes or args.on:
+        # Changing anything turns the lights on, like the Cherry Utility does.
+        changes["enabled"] = True
+    if changes:
+        settings = keyboard.set_lighting(dataclasses.replace(settings, **changes))
+    print(describe_lighting(settings))
+
+
+# --- presets ---------------------------------------------------------------
+
+
+def preset_name(value: str) -> str:
+    if value and all(c.isalnum() or c in "-_" for c in value):
+        return value
+    raise argparse.ArgumentTypeError("use letters, digits, '-' or '_'")
+
+
+def current_preset(keyboard: Keyboard) -> Preset:
+    return Preset(lighting=keyboard.lighting(), sleep=keyboard.sleep_settings())
+
+
+def cmd_save(keyboard: Keyboard, args: argparse.Namespace) -> None:
+    store = PresetStore()
+    replaced = args.name in store.presets
+    store.presets[args.name] = current_preset(keyboard)
+    store.last_used = args.name
+    store.save()
+    print(f"{'Updated' if replaced else 'Saved'} preset '{args.name}' from the keyboard's current settings.")
+
+
+def cmd_use(keyboard: Keyboard, args: argparse.Namespace) -> None:
+    store = PresetStore()
+    preset = store.get(args.name)
+    keyboard.set_lighting(preset.lighting)
+    keyboard.set_sleep_settings(preset.sleep)
+    store.last_used = args.name
+    store.save()
+    print(f"Using preset '{args.name}'.")
+
+
+def cmd_presets(keyboard: Keyboard | None, _args: argparse.Namespace) -> None:
+    store = PresetStore()
+    if not store.presets:
+        print("No presets saved yet. Set up the keyboard, then run: cherry-util save <name>")
+        return
+    current = current_preset(keyboard) if keyboard else None
+    for name in sorted(store.presets):
+        notes = []
+        if name == store.last_used:
+            notes.append("last used")
+        if current == store.presets[name]:
+            notes.append("matches keyboard")
+        print(f"{name}" + (f"  ({', '.join(notes)})" if notes else ""))
+
+
+def cmd_delete(_keyboard: None, args: argparse.Namespace) -> None:
+    store = PresetStore()
+    store.get(args.name)
+    del store.presets[args.name]
+    if store.last_used == args.name:
+        store.last_used = None
+    store.save()
+    print(f"Deleted preset '{args.name}'.")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="cherry-util")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    commands.add_parser("info", help="find the keyboard and check access").set_defaults(func=cmd_info)
+    commands.add_parser("battery", help="show the battery level").set_defaults(func=cmd_battery)
+
+    sleep = commands.add_parser("sleep", help="show or change the sleep and hibernate settings")
+    sleep.add_argument(
+        "--sleep",
+        metavar="SECONDS",
+        type=lambda v: parse_timer(v, SLEEP_RANGE, SLEEP_OFF, "seconds"),
+        help="light sleep after 30-300 seconds, or 'off'",
+    )
+    sleep.add_argument(
+        "--hibernate",
+        metavar="MINUTES",
+        type=lambda v: parse_timer(v, HIBERNATE_RANGE, HIBERNATE_OFF, "minutes"),
+        help="deep sleep after 15-300 minutes, or 'off'",
+    )
+    sleep.set_defaults(func=cmd_sleep)
+
+    lighting = commands.add_parser("lighting", help="show or change the lighting")
+    lighting.add_argument("--effect", choices=EFFECTS, help="lighting effect")
+    colors = lighting.add_mutually_exclusive_group()
+    colors.add_argument("--color", type=parse_color, help=f"{', '.join(COLORS)}, or a hex code like ff8800")
+    colors.add_argument("--rainbow", action="store_true", help="cycle through all colors instead of one color")
+    switch = lighting.add_mutually_exclusive_group()
+    switch.add_argument("--on", action="store_true", help="turn the lights on")
+    switch.add_argument("--off", action="store_true", help="turn the lights off (settings are kept)")
+    lighting.add_argument(
+        "--brightness", type=lambda v: parse_number(v, BRIGHTNESS_RANGE), metavar="0-4", help="0 = dimmest, 4 = brightest"
+    )
+    lighting.add_argument("--speed", type=parse_speed, metavar="1-5", help="1 = slowest, 5 = fastest")
+    lighting.add_argument("--direction", choices=DIRECTIONS, help="direction of the wave effect")
+    lighting.set_defaults(func=cmd_lighting)
+
+    save = commands.add_parser("save", help="save the keyboard's current lighting and sleep settings as a preset")
+    save.add_argument("name", type=preset_name)
+    save.set_defaults(func=cmd_save)
+    use = commands.add_parser("use", help="apply a saved preset")
+    use.add_argument("name")
+    use.set_defaults(func=cmd_use)
+    commands.add_parser("presets", help="list saved presets").set_defaults(func=cmd_presets, device="optional")
+    delete = commands.add_parser("delete", help="delete a saved preset")
+    delete.add_argument("name")
+    delete.set_defaults(func=cmd_delete, device="none")
+
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    needs_device = getattr(args, "device", "required")
+    try:
+        if needs_device == "none":
+            args.func(None, args)
+            return
+        try:
+            device = open_device()
+        except DeviceError:
+            if needs_device != "optional":
+                raise
+            args.func(None, args)
+            return
+        with device:
+            args.func(Keyboard(device), args)
+    except (DeviceError, PresetError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
