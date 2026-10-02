@@ -1,4 +1,4 @@
-"""Command-line entry point: `cherry-util <command>`."""
+"""Command-line entry point: `mx82ctl <command>`."""
 
 import argparse
 import dataclasses
@@ -222,7 +222,7 @@ def cmd_use(keyboard: Keyboard, args: argparse.Namespace) -> None:
 def cmd_presets(keyboard: Keyboard | None, _args: argparse.Namespace) -> None:
     store = PresetStore()
     if not store.presets:
-        print("No presets saved yet. Set up the keyboard, then run: cherry-util save <name>")
+        print("No presets saved yet. Set up the keyboard, then run: mx82ctl save <name>")
         return
     current = current_preset(keyboard) if keyboard else None
     for name in sorted(store.presets):
@@ -262,7 +262,7 @@ def cmd_setup_desktop(_keyboard: None, _args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cherry-util", description="Configure the CHERRY MX 8.2 TKL Wireless keyboard."
+        prog="mx82ctl", description="Configure the CHERRY MX 8.2 TKL Wireless keyboard."
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)

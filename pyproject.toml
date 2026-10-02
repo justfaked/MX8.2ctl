@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cherry-util"
+name = "MX8.2ctl"
 dynamic = ["version"]
 description = "Configure the CHERRY MX 8.2 TKL Wireless keyboard on Linux: lighting, per-key colors, sleep timers, battery"
 readme = "README.md"
@@ -23,17 +23,17 @@ classifiers = [
 gui = ["PySide6"]
 
 [project.scripts]
-cherry-util = "cherry_util.__main__:main"
+mx82ctl = "mx82ctl.__main__:main"
 
 [project.urls]
-Repository = "https://github.com/justfaked/cherry-keyboard-utility"
-Protocol = "https://github.com/justfaked/cherry-keyboard-utility/blob/main/docs/PROTOCOL.md"
+Repository = "https://github.com/justfaked/MX8.2ctl"
+Protocol = "https://github.com/justfaked/MX8.2ctl/blob/main/docs/PROTOCOL.md"
 
 [tool.setuptools]
-packages = ["cherry_util"]
+packages = ["mx82ctl"]
 
 [tool.setuptools.dynamic]
-version = { attr = "cherry_util.__version__" }
+version = { attr = "mx82ctl.__version__" }
 
 [tool.setuptools.package-data]
-cherry_util = ["layouts/*.json"]
+mx82ctl = ["layouts/*.json"]

@@ -1,6 +1,6 @@
 # CHERRY MX 8.2 TKL Wireless: configuration protocol
 
-This document describes what `cherry-util` sends to the keyboard and where each fact comes from. The protocol is CHERRY's variant of the EVision protocol, which is also used by other keyboards built on EVision/Sonix controllers.
+This document describes what `mx82ctl` sends to the keyboard and where each fact comes from. The protocol is CHERRY's variant of the EVision protocol, which is also used by other keyboards built on EVision/Sonix controllers.
 
 Sources are marked:
 
@@ -49,7 +49,7 @@ Replies echo the command, length and offset. Writes are wrapped in a session: be
 | `0x1A` | Read battery | Battery level |
 | `0xAA` | Dongle state | Also how the dongle acknowledges `0x0B` writes, see below |
 
-The Utility also lists key mapping (`0x07`–`0x09`) and macro (`0x14`, `0x15`) commands. `cherry-util` doesn't use them.
+The Utility also lists key mapping (`0x07`–`0x09`) and macro (`0x14`, `0x15`) commands. `mx82ctl` doesn't use them.
 
 ## Config table
 
@@ -104,7 +104,7 @@ A table of 126 slots × 3 bytes (R, G, B) = 378 bytes, written with `0x0B` in 56
 
 **Dongle quirk [device]:** the dongle answers each `0x0B` chunk with command byte `0xAA` instead of `0x0B`, but echoes the length, offset, marker and data. The colors do arrive on the keyboard. A reader waiting for an echo of `0x0B` times out.
 
-A key's slot is its `keyIndex` in the Utility's layout data [utility, device]. Slots run column by column, six per column (Esc = 0, `^` = 1, Tab = 2, Caps = 3, left Shift = 4, left Ctrl = 5, 1 = 7, …). The German ISO layout with positions is in [`cherry_util/layouts/iso_de.json`](../cherry_util/layouts/iso_de.json). ISO-only keys: `<` = 10, `#` = 75. ANSI boards use slot 80 for Backslash instead.
+A key's slot is its `keyIndex` in the Utility's layout data [utility, device]. Slots run column by column, six per column (Esc = 0, `^` = 1, Tab = 2, Caps = 3, left Shift = 4, left Ctrl = 5, 1 = 7, …). The German ISO layout with positions is in [`mx82ctl/layouts/iso_de.json`](../mx82ctl/layouts/iso_de.json). ISO-only keys: `<` = 10, `#` = 75. ANSI boards use slot 80 for Backslash instead.
 
 The keyboard can't be asked for its current per-key colors through any command the Utility uses.
 

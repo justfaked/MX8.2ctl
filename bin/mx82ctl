@@ -1,0 +1,4 @@
+#!/bin/sh
+# Launcher for running mx82ctl from a source checkout.
+project_dir=$(dirname "$(dirname "$(readlink -f "$0")")")
+PYTHONPATH="$project_dir${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m mx82ctl "$@"

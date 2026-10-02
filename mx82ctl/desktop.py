@@ -17,12 +17,12 @@ Categories=Settings;HardwareSettings;
 
 
 def _command() -> str:
-    """The cherry-util command as the desktop will run it.
+    """The mx82ctl command as the desktop will run it.
 
     Prefers the one on PATH, which inside distrobox is the exported wrapper
     that also works on the host.
     """
-    found = shutil.which("cherry-util")
+    found = shutil.which("mx82ctl")
     if found:
         return found
     return str(Path(sys.argv[0]).resolve())
@@ -33,11 +33,11 @@ def install() -> list[Path]:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     command = _command()
     files = {
-        data_home / "applications" / "cherry-util.desktop": ENTRY.format(
-            name="Cherry Keyboard Utility", command=command, subcommand="gui"
+        data_home / "applications" / "mx82ctl.desktop": ENTRY.format(
+            name="MX8.2ctl", command=command, subcommand="gui"
         ),
-        config_home / "autostart" / "cherry-util-tray.desktop": ENTRY.format(
-            name="Cherry Keyboard Utility (tray)", command=command, subcommand="tray"
+        config_home / "autostart" / "mx82ctl-tray.desktop": ENTRY.format(
+            name="MX8.2ctl (tray)", command=command, subcommand="tray"
         ),
     }
     for path, content in files.items():

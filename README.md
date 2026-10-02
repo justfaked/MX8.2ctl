@@ -1,4 +1,4 @@
-# Cherry Keyboard Utility
+# MX8.2ctl
 
 Configure the **CHERRY MX 8.2 TKL Wireless** keyboard on Linux, without the Windows-only CHERRY Utility.
 
@@ -38,35 +38,51 @@ distrobox enter cherry
 
 # inside the container
 sudo dnf install -y git python3-pyside6
-git clone https://github.com/justfaked/cherry-keyboard-utility.git ~/cherry-keyboard-utility
-cd ~/cherry-keyboard-utility
-distrobox-export --bin "$PWD/bin/cherry-util" --export-path ~/.local/bin
-cherry-util setup-desktop     # app menu entry + tray icon at login
+git clone https://github.com/justfaked/MX8.2ctl.git ~/MX8.2ctl
+cd ~/MX8.2ctl
+distrobox-export --bin "$PWD/bin/mx82ctl" --export-path ~/.local/bin
+mx82ctl setup-desktop     # app menu entry + tray icon at login
 exit
 ```
 
-`cherry-util` now works in a normal terminal on the host, and "Cherry Keyboard Utility" appears in the app menu. The exported command points at the clone, so re-run `distrobox-export` if you move it.
+`mx82ctl` now works in a normal terminal on the host, and "MX8.2ctl" appears in the app menu. The exported command points at the clone, so re-run `distrobox-export` if you move it.
 
 On Bazzite the dongle is accessible without extra setup. On other systems, add the [udev rule](#permissions) on the host.
 
 ### Fedora, Debian, Ubuntu, Arch and others
 
+Install with [pipx](https://pipx.pypa.io/). Plain `pip install --user` is blocked on most current distributions (PEP 668).
+
+**Fedora** and **Arch**: PySide6 comes from the distribution.
+
 ```sh
-git clone https://github.com/justfaked/cherry-keyboard-utility.git
-cd cherry-keyboard-utility
-pip install --user .          # or: pipx install --system-site-packages .
+sudo dnf install git pipx python3-pyside6         # Fedora
+sudo pacman -S git python-pipx pyside6            # Arch
+
+git clone https://github.com/justfaked/MX8.2ctl.git
+cd MX8.2ctl
+pipx install --system-site-packages .
 ```
 
-For the settings window, install PySide6 from your distribution (for example `python3-pyside6` on Fedora, `pyside6` on Arch) or with `pip install --user ".[gui]"`. Then run `cherry-util setup-desktop` once.
+**Debian** and **Ubuntu**: PySide6 isn't packaged there, so pipx downloads it from PyPI (a large download):
 
-To run from the checkout without installing, use `bin/cherry-util`.
+```sh
+sudo apt install git pipx
+git clone https://github.com/justfaked/MX8.2ctl.git
+cd MX8.2ctl
+pipx install ".[gui]"          # or "pipx install ." for the command line only
+```
+
+If `mx82ctl` isn't found afterwards, run `pipx ensurepath` and open a new terminal. Then run `mx82ctl setup-desktop` once for the app menu entry and the tray icon at login.
+
+These steps were tested on Fedora 44, Debian 13, Ubuntu 24.04 and Arch Linux. To run from the checkout without installing, use `bin/mx82ctl`.
 
 ### Permissions
 
-The tool needs read/write access to the dongle's `/dev/hidraw*` device. If `cherry-util info` reports "No permission", install the udev rule **on the host**:
+The tool needs read/write access to the dongle's `/dev/hidraw*` device. If `mx82ctl info` reports "No permission", install the udev rule **on the host**:
 
 ```sh
-sudo cp udev/70-cherry-util.rules /etc/udev/rules.d/
+sudo cp udev/70-mx82ctl.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
@@ -75,18 +91,18 @@ Then unplug and replug the dongle.
 ## Usage
 
 ```sh
-cherry-util info                                   # find the keyboard, check access
-cherry-util battery                                # Battery: 85%
-cherry-util lighting --effect breathing --color blue --speed 2
-cherry-util keys --all white --set w,a,s,d=red
-cherry-util sleep --sleep 60 --hibernate 30
-cherry-util save gaming
-cherry-util use gaming
+mx82ctl info                                   # find the keyboard, check access
+mx82ctl battery                                # Battery: 85%
+mx82ctl lighting --effect breathing --color blue --speed 2
+mx82ctl keys --all white --set w,a,s,d=red
+mx82ctl sleep --sleep 60 --hibernate 30
+mx82ctl save gaming
+mx82ctl use gaming
 ```
 
 ### Lighting
 
-`cherry-util lighting` shows the current lighting. Options can be combined:
+`mx82ctl lighting` shows the current lighting. Options can be combined:
 
 | Option | Values |
 |---|---|
@@ -103,23 +119,23 @@ cherry-util use gaming
 ![Per-key color editor](docs/images/per-key-colors.png)
 
 ```sh
-cherry-util keys                                    # show the colors last set
-cherry-util keys --all white --set w,a,s,d=red      # set colors, switch to the custom effect
-cherry-util keys --clear --set 'esc,f1,f2=yellow'   # start from all keys dark
+mx82ctl keys                                    # show the colors last set
+mx82ctl keys --all white --set w,a,s,d=red      # set colors, switch to the custom effect
+mx82ctl keys --clear --set 'esc,f1,f2=yellow'   # start from all keys dark
 ```
 
 Keys are named by their German labels (`z`, `ö`, `ß`, `<`, `#`, …) or `esc`, `enter`, `space`, `tab`, `caps`, `f1`–`f12`, `up`, `left`, and so on. `--set` can be repeated.
 
 In the settings window, click **Per-key colors…**, select keys, pick a color and click **Apply to keyboard**.
 
-The keyboard can't report its per-key colors, so the tool keeps the ones it last sent in `~/.config/cherry-util/key_colors.json`.
+The keyboard can't report its per-key colors, so the tool keeps the ones it last sent in `~/.config/mx82ctl/key_colors.json`.
 
 ### Sleep
 
 ```sh
-cherry-util sleep                                   # show the timers
-cherry-util sleep --sleep 30 --hibernate 15         # CHERRY's defaults
-cherry-util sleep --sleep off --hibernate off       # never sleep
+mx82ctl sleep                                   # show the timers
+mx82ctl sleep --sleep 30 --hibernate 15         # CHERRY's defaults
+mx82ctl sleep --sleep off --hibernate off       # never sleep
 ```
 
 ### Presets
@@ -127,13 +143,13 @@ cherry-util sleep --sleep off --hibernate off       # never sleep
 A preset stores the lighting, per-key colors and sleep timers.
 
 ```sh
-cherry-util save work         # save what's on the keyboard now
-cherry-util use work          # apply it
-cherry-util presets           # list presets, marks the last used one
-cherry-util delete work
+mx82ctl save work         # save what's on the keyboard now
+mx82ctl use work          # apply it
+mx82ctl presets           # list presets, marks the last used one
+mx82ctl delete work
 ```
 
-Presets live in `~/.config/cherry-util/presets.json`. The tray icon's right-click menu can switch presets too.
+Presets live in `~/.config/mx82ctl/presets.json`. The tray icon's right-click menu can switch presets too.
 
 ### Settings window and tray icon
 
@@ -141,9 +157,9 @@ Presets live in `~/.config/cherry-util/presets.json`. The tray icon's right-clic
 
 | Command | What it does |
 |---|---|
-| `cherry-util gui` | Open the settings window (also starts the tray icon) |
-| `cherry-util tray` | Run only the tray icon |
-| `cherry-util setup-desktop` | Add the app menu entry and start the tray icon at login |
+| `mx82ctl gui` | Open the settings window (also starts the tray icon) |
+| `mx82ctl tray` | Run only the tray icon |
+| `mx82ctl setup-desktop` | Add the app menu entry and start the tray icon at login |
 
 The tray icon shows the battery percentage. It turns orange at 25 %, red at 5 % and blue while charging, and refreshes every two minutes. Left-click opens the settings window. Right-click offers presets, a refresh and Quit. Only one copy runs at a time: starting `gui` again opens the running copy's window.
 
@@ -171,12 +187,12 @@ Code layout:
 
 | File | Purpose |
 |---|---|
-| `cherry_util/device.py` | Find the dongle and exchange packets over hidraw |
-| `cherry_util/protocol.py` | Packet format and settings layout |
-| `cherry_util/keyboard.py` | Read, check, write and verify settings |
-| `cherry_util/layout.py`, `layouts/` | Key positions and LED slots |
-| `cherry_util/presets.py` | Presets and stored per-key colors |
-| `cherry_util/gui.py` | Settings window and tray icon (PySide6) |
+| `mx82ctl/device.py` | Find the dongle and exchange packets over hidraw |
+| `mx82ctl/protocol.py` | Packet format and settings layout |
+| `mx82ctl/keyboard.py` | Read, check, write and verify settings |
+| `mx82ctl/layout.py`, `layouts/` | Key positions and LED slots |
+| `mx82ctl/presets.py` | Presets and stored per-key colors |
+| `mx82ctl/gui.py` | Settings window and tray icon (PySide6) |
 
 Run the offline tests with `python3 -m unittest discover -s tests`.
 

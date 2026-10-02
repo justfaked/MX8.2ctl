@@ -18,7 +18,13 @@ class PresetError(Exception):
 
 
 def config_dir() -> Path:
-    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "cherry-util"
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    path = config_home / "mx82ctl"
+    # Earlier versions were called cherry-util; carry their presets over once.
+    old = config_home / "cherry-util"
+    if not path.exists() and old.is_dir():
+        old.rename(path)
+    return path
 
 
 def presets_file() -> Path:

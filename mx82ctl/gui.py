@@ -1,7 +1,7 @@
 """Settings window and system tray battery icon (Qt).
 
-One process runs both. `cherry-util tray` starts it with only the tray icon,
-`cherry-util gui` also opens the window. Starting it again while it runs
+One process runs both. `mx82ctl tray` starts it with only the tray icon,
+`mx82ctl gui` also opens the window. Starting it again while it runs
 just opens the window of the running instance.
 """
 
@@ -55,8 +55,8 @@ from .protocol import (
     speed_to_user,
 )
 
-APP_ID = "cherry-util"
-APP_TITLE = "Cherry Keyboard Utility"
+APP_ID = "mx82ctl"
+APP_TITLE = "MX8.2ctl"
 BATTERY_POLL_MS = 2 * 60 * 1000
 LOW_BATTERY = 25  # the Cherry Utility's "low" level for this keyboard
 CRITICAL_BATTERY = 5
@@ -516,10 +516,10 @@ class Tray(QSystemTrayIcon):
             status = with_keyboard(lambda keyboard: keyboard.battery())
         except DeviceError as error:
             self.setIcon(battery_icon(None))
-            self.setToolTip(f"CHERRY keyboard: {error}")
+            self.setToolTip(f"{APP_TITLE}: {error}")
             return
         self.setIcon(battery_icon(status))
-        self.setToolTip(f"CHERRY keyboard: {status.percent}%" + (" (charging)" if status.charging else ""))
+        self.setToolTip(f"{APP_TITLE}: {status.percent}%" + (" (charging)" if status.charging else ""))
 
     def rebuild_menu(self) -> None:
         self.menu.clear()

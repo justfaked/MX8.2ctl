@@ -2,8 +2,8 @@
 
 import unittest
 
-from cherry_util.layout import load_layout
-from cherry_util.protocol import (
+from mx82ctl.layout import load_layout
+from mx82ctl.protocol import (
     BATTERY_QUERY,
     BEGIN_CONFIGURE,
     CMD_DONGLE_ACK,
