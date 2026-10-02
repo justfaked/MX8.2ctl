@@ -17,12 +17,12 @@ Command-line tool to configure the CHERRY MX 8.2 TKL Wireless on Bazzite, run fr
 - [ ] Export `cherry-util` from distrobox so it runs in a normal Bazzite terminal
 - [x] Short usage notes (README)
 - [ ] Graphical app: lighting, sleep settings, battery level and presets in a window, launchable from the app menu
+- [ ] System tray icon showing the current battery level (updates on its own, starts with login)
 
 ## Later
 
 - [ ] Low-battery desktop notification
 - [ ] Per-key colors
-- [ ] Battery display in the panel/tray (extends the graphical app)
 - [ ] Support the USB cable connection
 - [ ] Maybe publish on GitHub for other MX 8.2 owners
 
