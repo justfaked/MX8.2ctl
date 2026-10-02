@@ -28,12 +28,24 @@ Early, personal project. Tested with one keyboard over the 2.4 GHz dongle (USB I
 
 It works inside a distrobox/toolbox container too. The container sees the host's devices, but udev rules must be installed on the host.
 
-## Usage
+## Installation
 
-From the project folder:
+Clone the repository, then run `bin/cherry-util` from anywhere, or put it on your PATH:
 
 ```
-python3 -m cherry_util <command>
+ln -s "$PWD/bin/cherry-util" ~/.local/bin/cherry-util
+```
+
+When the checkout lives in a distrobox container, export the launcher so the host can run it too. The host then gets a `cherry-util` that runs inside the container:
+
+```
+distrobox-export --bin "$PWD/bin/cherry-util" --export-path ~/.local/bin
+```
+
+## Usage
+
+```
+cherry-util <command>
 ```
 
 | Command | What it does |
