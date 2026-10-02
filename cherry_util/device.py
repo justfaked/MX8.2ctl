@@ -97,8 +97,10 @@ class Device:
         while select.select([self._fd], [], [], 0)[0]:
             os.read(self._fd, 256)
 
-    def request(self, packet: bytes, command: int, offset: int | None = None, timeout: float = 3.0) -> bytes | None:
-        """Send a packet and wait for the reply to `command`. None on timeout."""
+    def request(
+        self, packet: bytes, command: int | tuple[int, ...], offset: int | None = None, timeout: float = 3.0
+    ) -> bytes | None:
+        """Send a packet and wait for a reply with `command` (or one of several). None on timeout."""
         self._drain()
         os.write(self._fd, packet)
         deadline = time.monotonic() + timeout

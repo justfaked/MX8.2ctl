@@ -20,7 +20,12 @@ CMD_BEGIN_CONFIGURE = 0x01
 CMD_END_CONFIGURE = 0x02
 CMD_READ_CONFIG = 0x05
 CMD_WRITE_CONFIG = 0x06
+CMD_WRITE_CUSTOM_COLORS = 0x0B
 CMD_READ_BATTERY = 0x1A
+# The dongle answers custom color writes (0x0B) with this command byte
+# instead of echoing 0x0B; offset and data are echoed as usual. Observed on
+# the XAGA dongle; the colors do arrive on the keyboard.
+CMD_DONGLE_ACK = 0xAA
 
 STATUS_ERROR = 0xFF
 
@@ -40,11 +45,12 @@ def build_packet(command: int, length: int = 0, offset: int = 0, extra: int = 0,
     return bytes(body)
 
 
-def is_reply_to(packet: bytes, command: int, offset: int | None = None) -> bool:
+def is_reply_to(packet: bytes, command: int | tuple[int, ...], offset: int | None = None) -> bool:
+    commands = command if isinstance(command, tuple) else (command,)
     return (
         len(packet) >= 8
         and packet[0] == REPORT_ID
-        and packet[3] == command
+        and packet[3] in commands
         and (offset is None or int.from_bytes(packet[5:7], "little") == offset)
     )
 
@@ -64,9 +70,9 @@ def read_config_packet(offset: int, length: int) -> bytes:
     return build_packet(CMD_READ_CONFIG, length=length, offset=offset)
 
 
-def write_config_packet(offset: int, data: bytes) -> bytes:
-    """Config-table write, as the Cherry Utility sends it."""
-    return build_packet(CMD_WRITE_CONFIG, length=len(data), offset=offset, extra=WRITE_MARKER, data=data)
+def write_packet(command: int, offset: int, data: bytes) -> bytes:
+    """Table write (config or custom colors), as the Cherry Utility sends it."""
+    return build_packet(command, length=len(data), offset=offset, extra=WRITE_MARKER, data=data)
 
 
 # --- Battery ---------------------------------------------------------------
@@ -154,6 +160,7 @@ EFFECTS = {
     "vortex": 0x05,
     "fire": 0x06,
     "stars": 0x07,
+    "custom": 0x08,  # per-key colors from the custom color table
     "sine-wave": 0x09,
     "rolling": 0x0A,
     "rain": 0x0B,
@@ -200,3 +207,21 @@ class LightingSettings:
             rainbow=header[4] != 0,
             color=(header[5], header[6], header[7]),
         )
+
+
+# --- Per-key colors ------------------------------------------------------------
+
+# Custom color table written with cmd 0x0B, found in Cherry Utility 3.12
+# (prepareCustomColors) and matching cherryrgb-rs: 126 slots of R, G, B.
+# A key's slot is its "index" in the layout file. Unused slots stay black.
+KEY_SLOTS = 126
+CUSTOM_COLORS_SIZE = KEY_SLOTS * 3
+
+
+def custom_colors_bytes(colors: dict[int, tuple[int, int, int]]) -> bytes:
+    table = bytearray(CUSTOM_COLORS_SIZE)
+    for index, (r, g, b) in colors.items():
+        if not 0 <= index < KEY_SLOTS:
+            raise ValueError(f"key index {index} out of range")
+        table[3 * index : 3 * index + 3] = bytes((r, g, b))
+    return bytes(table)

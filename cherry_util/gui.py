@@ -8,14 +8,16 @@ just opens the window of the running instance.
 import dataclasses
 import sys
 
-from PySide6.QtCore import QRectF, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap, QPolygonF
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QColorDialog,
     QComboBox,
+    QDialog,
+    QSizePolicy,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -34,7 +36,8 @@ from PySide6.QtWidgets import (
 
 from .device import DeviceError, open_device
 from .keyboard import Keyboard
-from .presets import PresetError, PresetStore, apply_preset, current_preset
+from .layout import Key, Layout, load_layout
+from .presets import PresetError, PresetStore, apply_preset, current_preset, load_key_colors, set_key_colors
 from .protocol import (
     BRIGHTNESS_RANGE,
     DIRECTIONS,
@@ -150,6 +153,8 @@ class SettingsWindow(QWidget):
             self.direction.addItem(name.capitalize(), name)
         apply_button = QPushButton("Apply lighting")
         apply_button.clicked.connect(self.apply_lighting)
+        keys_button = QPushButton("Per-key colors…")
+        keys_button.clicked.connect(self.edit_key_colors)
 
         form = QFormLayout()
         form.addRow(self.lights_on)
@@ -159,6 +164,7 @@ class SettingsWindow(QWidget):
         form.addRow("Speed", self.speed)
         form.addRow("Direction", self.direction)
         form.addRow(apply_button)
+        form.addRow(keys_button)
         group = QGroupBox("Lighting")
         group.setLayout(form)
         return group
@@ -305,6 +311,12 @@ class SettingsWindow(QWidget):
 
         self._write(action)
 
+    def edit_key_colors(self) -> None:
+        dialog = KeyColorsDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.load()
+            self.on_change()
+
     def apply_sleep(self) -> None:
         wanted = SleepSettings(
             sleep_seconds=SLEEP_OFF if self.sleep_off.isChecked() else self.sleep.value(),
@@ -361,6 +373,128 @@ def use_preset(keyboard: Keyboard, name: str) -> None:
     apply_preset(keyboard, store.get(name))
     store.last_used = name
     store.save()
+
+
+class KeyboardView(QWidget):
+    """The keyboard drawn from the layout; click keys to select them."""
+
+    def __init__(self, layout: Layout, colors: dict[int, QColor]):
+        super().__init__()
+        self.layout_ = layout
+        self.colors = colors
+        self.selected: set[int] = set()
+        self.setMinimumSize(QSize(720, int(720 / layout.aspect)))
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+    def _scale(self) -> tuple[float, float, float]:
+        """Picture width and the offset that keeps the aspect ratio, centered."""
+        width = min(self.width(), self.height() * self.layout_.aspect)
+        height = width / self.layout_.aspect
+        return width, (self.width() - width) / 2, (self.height() - height) / 2
+
+    def _shape(self, key: Key) -> QPolygonF:
+        width, dx, dy = self._scale()
+        height = width / self.layout_.aspect
+        points = key.polygon or ((key.x, key.y), (key.x + key.w, key.y), (key.x + key.w, key.y + key.h), (key.x, key.y + key.h))
+        return QPolygonF([QPointF(dx + x * width, dy + y * height) for x, y in points])
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#1e1e1e"))
+        font = QFont()
+        font.setPixelSize(max(9, int(self._scale()[0] / 75)))
+        painter.setFont(font)
+        for key in self.layout_.keys:
+            shape = self._shape(key)
+            color = self.colors.get(key.index, QColor("black"))
+            selected = key.index in self.selected
+            painter.setPen(QPen(QColor("#3e9bf5") if selected else QColor("#555555"), 4 if selected else 1))
+            painter.setBrush(color)
+            painter.drawPolygon(shape)
+            painter.setPen(QColor("black") if color.lightness() > 128 else QColor("white"))
+            painter.drawText(shape.boundingRect(), Qt.AlignmentFlag.AlignCenter, key.label)
+
+    def mousePressEvent(self, event) -> None:
+        for key in self.layout_.keys:
+            if self._shape(key).containsPoint(event.position(), Qt.FillRule.OddEvenFill):
+                self.selected ^= {key.index}
+                self.update()
+                return
+
+
+class KeyColorsDialog(QDialog):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setWindowTitle(f"{APP_TITLE} – per-key colors")
+        layout = load_layout()
+        try:
+            stored = load_key_colors()
+        except PresetError as error:
+            show_error(self, error)
+            stored = {}
+        self.view = KeyboardView(layout, {index: QColor(*rgb) for index, rgb in stored.items()})
+        self.all_indices = {key.index for key in layout.keys}
+
+        hint = QLabel("Click keys to select them, then pick a color for the selection.")
+        color_button = QPushButton("Color for selected…")
+        color_button.clicked.connect(self._color_selected)
+        select_all = QPushButton("Select all")
+        select_all.clicked.connect(lambda: self._select(self.all_indices))
+        select_none = QPushButton("Select none")
+        select_none.clicked.connect(lambda: self._select(set()))
+        apply_button = QPushButton("Apply to keyboard")
+        apply_button.setDefault(True)
+        apply_button.clicked.connect(self._apply)
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.reject)
+
+        buttons = QHBoxLayout()
+        for button in (color_button, select_all, select_none):
+            buttons.addWidget(button)
+        buttons.addStretch(1)
+        buttons.addWidget(apply_button)
+        buttons.addWidget(close_button)
+
+        box = QVBoxLayout(self)
+        box.addWidget(hint)
+        box.addWidget(self.view, 1)
+        box.addLayout(buttons)
+
+    def _select(self, indices: set[int]) -> None:
+        self.view.selected = set(indices)
+        self.view.update()
+
+    def _color_selected(self) -> None:
+        if not self.view.selected:
+            QMessageBox.information(self, APP_TITLE, "Select some keys first.")
+            return
+        first = self.view.colors.get(next(iter(self.view.selected)), QColor("white"))
+        color = QColorDialog.getColor(first, self, "Key color")
+        if color.isValid():
+            for index in self.view.selected:
+                self.view.colors[index] = color
+            self._select(set())
+
+    def _apply(self) -> None:
+        colors = {
+            index: (c.red(), c.green(), c.blue())
+            for index, c in self.view.colors.items()
+            if (c.red(), c.green(), c.blue()) != (0, 0, 0)
+        }
+
+        def action(keyboard: Keyboard) -> None:
+            set_key_colors(keyboard, colors)
+            lighting = keyboard.lighting()
+            if not lighting.enabled or lighting.effect != EFFECTS["custom"]:
+                keyboard.set_lighting(dataclasses.replace(lighting, enabled=True, effect=EFFECTS["custom"]))
+
+        try:
+            with_keyboard(action)
+        except (DeviceError, PresetError) as error:
+            show_error(self, error)
+            return
+        self.accept()
 
 
 class Tray(QSystemTrayIcon):
