@@ -6,7 +6,7 @@ import sys
 
 from .device import DeviceError, open_device
 from .keyboard import Keyboard
-from .presets import Preset, PresetError, PresetStore
+from .presets import PresetError, PresetStore, apply_preset, current_preset
 from .protocol import (
     BRIGHTNESS_RANGE,
     DIRECTION_NAMES,
@@ -17,9 +17,11 @@ from .protocol import (
     HIBERNATE_RANGE,
     SLEEP_OFF,
     SLEEP_RANGE,
-    SPEED_RANGE,
+    USER_SPEED_RANGE,
     LightingSettings,
     SleepSettings,
+    speed_from_user,
+    speed_to_user,
 )
 
 COLORS = {
@@ -33,9 +35,6 @@ COLORS = {
     "pink": (255, 0, 128),
     "white": (255, 255, 255),
 }
-
-# The keyboard stores speed as 0 (fastest) to 4 (slowest); users get 1 (slowest) to 5 (fastest).
-MAX_SPEED = SPEED_RANGE.stop
 
 
 def cmd_info(keyboard: Keyboard, _args: argparse.Namespace) -> None:
@@ -91,7 +90,7 @@ def describe_lighting(settings: LightingSettings) -> str:
         f"Effect:     {effect}\n"
         f"Color:      {color}\n"
         f"Brightness: {settings.brightness} of {BRIGHTNESS_RANGE.stop - 1}\n"
-        f"Speed:      {MAX_SPEED - settings.speed} of {MAX_SPEED}\n"
+        f"Speed:      {speed_to_user(settings.speed)} of {USER_SPEED_RANGE.stop - 1}\n"
         f"Direction:  {direction}"
     )
 
@@ -115,7 +114,7 @@ def parse_number(value: str, allowed: range) -> int:
 
 
 def parse_speed(value: str) -> int:
-    return MAX_SPEED - parse_number(value, range(1, MAX_SPEED + 1))
+    return speed_from_user(parse_number(value, USER_SPEED_RANGE))
 
 
 def cmd_lighting(keyboard: Keyboard, args: argparse.Namespace) -> None:
@@ -153,10 +152,6 @@ def preset_name(value: str) -> str:
     raise argparse.ArgumentTypeError("use letters, digits, '-' or '_'")
 
 
-def current_preset(keyboard: Keyboard) -> Preset:
-    return Preset(lighting=keyboard.lighting(), sleep=keyboard.sleep_settings())
-
-
 def cmd_save(keyboard: Keyboard, args: argparse.Namespace) -> None:
     store = PresetStore()
     replaced = args.name in store.presets
@@ -169,8 +164,7 @@ def cmd_save(keyboard: Keyboard, args: argparse.Namespace) -> None:
 def cmd_use(keyboard: Keyboard, args: argparse.Namespace) -> None:
     store = PresetStore()
     preset = store.get(args.name)
-    keyboard.set_lighting(preset.lighting)
-    keyboard.set_sleep_settings(preset.sleep)
+    apply_preset(keyboard, preset)
     store.last_used = args.name
     store.save()
     print(f"Using preset '{args.name}'.")
@@ -199,6 +193,22 @@ def cmd_delete(_keyboard: None, args: argparse.Namespace) -> None:
         store.last_used = None
     store.save()
     print(f"Deleted preset '{args.name}'.")
+
+
+# --- app --------------------------------------------------------------------
+
+
+def cmd_gui(_keyboard: None, args: argparse.Namespace) -> None:
+    from . import gui  # Qt is only needed for the app
+
+    gui.run(show_window=args.command == "gui")
+
+
+def cmd_setup_desktop(_keyboard: None, _args: argparse.Namespace) -> None:
+    from . import desktop
+
+    for path in desktop.install():
+        print(f"Wrote {path}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -248,6 +258,12 @@ def build_parser() -> argparse.ArgumentParser:
     delete = commands.add_parser("delete", help="delete a saved preset")
     delete.add_argument("name")
     delete.set_defaults(func=cmd_delete, device="none")
+
+    commands.add_parser("gui", help="open the settings window (with tray icon)").set_defaults(func=cmd_gui, device="none")
+    commands.add_parser("tray", help="run only the tray battery icon").set_defaults(func=cmd_gui, device="none")
+    commands.add_parser(
+        "setup-desktop", help="add an app menu entry and start the tray icon at login"
+    ).set_defaults(func=cmd_setup_desktop, device="none")
 
     return parser
 

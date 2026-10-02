@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .keyboard import Keyboard
 from .protocol import LightingSettings, SleepSettings
 
 
@@ -31,6 +32,15 @@ class Preset:
         lighting = dict(data["lighting"])
         lighting["color"] = tuple(lighting["color"])
         return cls(LightingSettings(**lighting), SleepSettings(**data["sleep"]))
+
+
+def current_preset(keyboard: Keyboard) -> Preset:
+    return Preset(lighting=keyboard.lighting(), sleep=keyboard.sleep_settings())
+
+
+def apply_preset(keyboard: Keyboard, preset: Preset) -> None:
+    keyboard.set_lighting(preset.lighting)
+    keyboard.set_sleep_settings(preset.sleep)
 
 
 class PresetStore:
