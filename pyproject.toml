@@ -7,6 +7,7 @@ name = "cherry-util"
 dynamic = ["version"]
 description = "Configure the CHERRY MX 8.2 TKL Wireless keyboard on Linux: lighting, per-key colors, sleep timers, battery"
 readme = "README.md"
+license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 keywords = ["cherry", "keyboard", "rgb", "hidraw", "linux"]
