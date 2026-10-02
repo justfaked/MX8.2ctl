@@ -8,6 +8,7 @@ It talks to the keyboard through its 2.4 GHz dongle and can:
 - change the sleep and hibernate timers
 - change the lighting: effect, color, brightness, speed, direction, on/off
 - save and switch between named presets
+- do all of that from a settings window, with a tray icon showing the battery level
 
 The keyboard stores all settings itself, so they survive power-off and work on any computer.
 
@@ -17,7 +18,8 @@ Early, personal project. Tested with one keyboard over the 2.4 GHz dongle (USB I
 
 ## Requirements
 
-- Linux with Python 3.11 or newer. There are no other dependencies.
+- Linux with Python 3.11 or newer. The command line has no other dependencies.
+- For the settings window and tray icon: PySide6 (Fedora: `sudo dnf install python3-pyside6`).
 - Read/write access to the dongle's `/dev/hidraw*` node. Bazzite grants this out of the box. On other distributions, add a udev rule on the host, for example `/etc/udev/rules.d/70-cherry-util.rules`:
 
   ```
@@ -72,6 +74,16 @@ Lighting options can be combined:
 - `--direction`: left or right (wave effect)
 
 Presets are stored in `~/.config/cherry-util/presets.json`.
+
+## Settings window and tray icon
+
+| Command | What it does |
+|---|---|
+| `gui` | Open the settings window: lighting, sleep timers, presets and battery level |
+| `tray` | Run only the tray icon |
+| `setup-desktop` | Add "Cherry Keyboard Utility" to the app menu and start the tray icon at login |
+
+The tray icon shows the battery percentage, turns orange at 25 %, red at 5 % and blue while charging, and refreshes every two minutes. Left-click opens the window; right-click offers presets, a refresh and Quit. Only one copy runs at a time: starting `gui` again opens the running copy's window.
 
 ## Safety
 
