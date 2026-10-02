@@ -133,6 +133,15 @@ OFFSET_LIGHTS_DISABLED = 0x15
 
 BRIGHTNESS_RANGE = range(0, 5)  # 0 = dimmest, 4 = full
 SPEED_RANGE = range(0, 5)  # 0 = fastest, 4 = slowest
+USER_SPEED_RANGE = range(1, SPEED_RANGE.stop + 1)  # shown to users: 1 = slowest, 5 = fastest
+
+
+def speed_to_user(speed: int) -> int:
+    return SPEED_RANGE.stop - speed
+
+
+def speed_from_user(user_speed: int) -> int:
+    return SPEED_RANGE.stop - user_speed
 
 # Effect IDs from the Cherry Utility's "Regular" mapping table, limited to the
 # modes it lists for this keyboard. The ones cherryrgb-rs also has match its IDs.
