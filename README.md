@@ -208,3 +208,7 @@ This project is not affiliated with or endorsed by CHERRY. CHERRY is a trademark
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
+
+## Support
+
+If this tool is useful to you, you can [buy me a coffee](https://buymeacoffee.com/justfaked).
