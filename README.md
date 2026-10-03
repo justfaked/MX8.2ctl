@@ -7,7 +7,7 @@ Configure the **CHERRY MX 8.2 TKL Wireless** keyboard on Linux, without the Wind
 - **Lighting:** 19 effects, color, brightness, speed, direction, on/off
 - **Per-key colors:** click keys on a picture of the keyboard, or set them from the command line
 - **Sleep timers:** light sleep after 30–300 s, hibernate after 15–300 min, or off
-- **Battery:** level and charging state, also as a tray icon
+- **Battery:** level and charging state, also as a tray icon with a low-battery notification
 - **Presets:** save the current setup under a name and switch with one command
 
 Everything is stored on the keyboard itself, so settings survive power-off and work on any computer. Typing keeps working while the tool runs.
@@ -161,7 +161,7 @@ Presets live in `~/.config/mx82ctl/presets.json`. The tray icon's right-click me
 | `mx82ctl tray` | Run only the tray icon |
 | `mx82ctl setup-desktop` | Add the app menu entry and start the tray icon at login |
 
-The tray icon shows the battery percentage. It turns orange at 25 %, red at 5 % and blue while charging, and refreshes every two minutes. Left-click opens the settings window. Right-click offers presets, a refresh and Quit. Only one copy runs at a time: starting `gui` again opens the running copy's window.
+The tray icon shows the battery percentage. It turns orange at 25 %, red at 5 % and blue while charging, and refreshes every two minutes. When the battery drops to 25 % and again at 5 %, it shows a desktop notification. It warns once per level until the keyboard is charged. Left-click opens the settings window. Right-click offers presets, a refresh and Quit. Only one copy runs at a time: starting `gui` again opens the running copy's window.
 
 On GNOME, tray icons need the *AppIndicator and KStatusNotifierItem Support* extension. Some distributions, such as Ubuntu, ship it preinstalled.
 

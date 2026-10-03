@@ -40,15 +40,18 @@ from .layout import Key, Layout, load_layout
 from .presets import PresetError, PresetStore, apply_preset, current_preset, load_key_colors, set_key_colors
 from .protocol import (
     BRIGHTNESS_RANGE,
+    CRITICAL_BATTERY,
     DIRECTIONS,
     EFFECT_NAMES,
     EFFECTS,
     HIBERNATE_OFF,
     HIBERNATE_RANGE,
+    LOW_BATTERY,
     SLEEP_OFF,
     SLEEP_RANGE,
     USER_SPEED_RANGE,
     BatteryStatus,
+    BatteryWarning,
     LightingSettings,
     SleepSettings,
     speed_from_user,
@@ -58,8 +61,6 @@ from .protocol import (
 APP_ID = "mx82ctl"
 APP_TITLE = "MX8.2ctl"
 BATTERY_POLL_MS = 2 * 60 * 1000
-LOW_BATTERY = 25  # the Cherry Utility's "low" level for this keyboard
-CRITICAL_BATTERY = 5
 
 
 def with_keyboard(action):
@@ -505,6 +506,7 @@ class Tray(QSystemTrayIcon):
         self.setContextMenu(self.menu)
         self.activated.connect(self._on_activated)
         self.rebuild_menu()
+        self.battery_warning = BatteryWarning()
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh)
@@ -520,6 +522,9 @@ class Tray(QSystemTrayIcon):
             return
         self.setIcon(battery_icon(status))
         self.setToolTip(f"{APP_TITLE}: {status.percent}%" + (" (charging)" if status.charging else ""))
+        warning = self.battery_warning.update(status)
+        if warning:
+            self.showMessage(APP_TITLE, warning, QSystemTrayIcon.MessageIcon.Warning)
 
     def rebuild_menu(self) -> None:
         self.menu.clear()

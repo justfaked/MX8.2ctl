@@ -95,6 +95,33 @@ def parse_battery(reply: bytes) -> BatteryStatus | None:
     return BatteryStatus(percent=reply[8], charging=reply[9] != 0)
 
 
+LOW_BATTERY = 25  # the Cherry Utility's "low" level for this keyboard
+CRITICAL_BATTERY = 5
+
+
+class BatteryWarning:
+    """Decides when to warn about a low battery: once at LOW_BATTERY, once more at
+    CRITICAL_BATTERY. Resets once the keyboard is charging or back above LOW_BATTERY."""
+
+    def __init__(self):
+        self.warned_at: int | None = None  # threshold of the last warning
+
+    def update(self, status: BatteryStatus | None) -> str | None:
+        """Return a warning to show, or None. A missing reading changes nothing."""
+        if status is None:
+            return None
+        if status.charging or status.percent > LOW_BATTERY:
+            self.warned_at = None
+            return None
+        threshold = CRITICAL_BATTERY if status.percent <= CRITICAL_BATTERY else LOW_BATTERY
+        if self.warned_at is not None and self.warned_at <= threshold:
+            return None
+        self.warned_at = threshold
+        if threshold == CRITICAL_BATTERY:
+            return f"Keyboard battery critical: {status.percent}%. Charge it now."
+        return f"Keyboard battery low: {status.percent}%. Charge it soon."
+
+
 # --- Sleep -----------------------------------------------------------------
 
 # Sleep settings in the config table, found in Cherry Utility 3.12

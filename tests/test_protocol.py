@@ -6,6 +6,8 @@ from mx82ctl.layout import load_layout
 from mx82ctl.protocol import (
     BATTERY_QUERY,
     BEGIN_CONFIGURE,
+    BatteryStatus,
+    BatteryWarning,
     CMD_DONGLE_ACK,
     CMD_WRITE_CONFIG,
     CMD_WRITE_CUSTOM_COLORS,
@@ -121,6 +123,45 @@ class KeyColorTests(unittest.TestCase):
         self.assertEqual(layout.find("y").name, "Z")
         self.assertEqual(layout.find("z").name, "Y")
         self.assertEqual(len({k.index for k in layout.keys}), 88)
+
+
+class BatteryWarningTests(unittest.TestCase):
+    def levels(self, *readings):
+        """Feed readings (percent, or (percent, charging), or None) and return which ones warned."""
+        warning = BatteryWarning()
+        result = []
+        for reading in readings:
+            if reading is None:
+                status = None
+            elif isinstance(reading, tuple):
+                status = BatteryStatus(*reading)
+            else:
+                status = BatteryStatus(reading, False)
+            result.append(warning.update(status) is not None)
+        return result
+
+    def test_warns_once_when_low_and_once_when_critical(self):
+        self.assertEqual(self.levels(30, 25, 20, 10, 5, 4, 3), [False, True, False, False, True, False, False])
+
+    def test_starting_critical_warns_once(self):
+        self.assertEqual(self.levels(3, 2), [True, False])
+
+    def test_missing_reading_keeps_state(self):
+        self.assertEqual(self.levels(20, None, 19), [True, False, False])
+
+    def test_charging_resets(self):
+        self.assertEqual(self.levels(20, (21, True), 20), [True, False, True])
+
+    def test_back_above_low_resets(self):
+        self.assertEqual(self.levels(25, 26, 25), [True, False, True])
+
+    def test_never_warns_while_charging(self):
+        self.assertEqual(self.levels((3, True), (20, True)), [False, False])
+
+    def test_messages(self):
+        warning = BatteryWarning()
+        self.assertIn("low: 20%", warning.update(BatteryStatus(20, False)))
+        self.assertIn("critical: 5%", warning.update(BatteryStatus(5, False)))
 
 
 if __name__ == "__main__":
